@@ -68,7 +68,7 @@ app.get('/', function(req, res){
 
 // twilio endpoint
 app.post('/twilio', function(req, res){
-  game.inbound({ phone: req.body.From, body: re.body.Body }, function(err, messages){
+  game.inbound({ phone: req.body.From, body: req.body.Body }, function(err, messages){
     messages.forEach(function(msg){
       sendMessage({phone: msg.phone, body: msg.body});
     })
