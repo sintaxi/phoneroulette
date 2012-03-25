@@ -1,18 +1,24 @@
+// core libs
 var fs = require('fs');
 var qs = require('querystring');
 
+// dependencies
 var express = require("express");
 var sessionStore = require('connect-redis')(express);
 var request = require('request');
-var port = process.env.PORT || 4000;
-var log = fs.createWriteStream(__dirname + '/log/development.log', {'flags': 'a'});
-
 var redis = require("redis")
-var client = redis.createClient()
-var game = require("./lib/game")(client)
 
-var config = fs.readFileSync(__dirname + '/config/development.json', 'utf8');
-config = JSON.parse(config);
+// local goods
+var log = fs.createWriteStream(__dirname + '/log/development.log', {'flags': 'a'});
+var logger = function(message) { log.write(message + "\n"); }
+var config = JSON.parse(fs.readFileSync(__dirname + '/config/development.json', 'utf8'));
+var port = process.env.PORT || 4000;
+
+// redis client
+var client = redis.createClient()
+
+// get the game
+var game = require("./lib/game")(client)
 
 var app = express.createServer(
   // express.logger(),
@@ -29,19 +35,8 @@ app.configure(function(){
 
 app.set("view options", { layout: "layouts/layout" });
 
-
-var logger = function(message) {
-  log.write(message + "\n");    
-}
-
 // Twilio Send Message Call
 var sendMessage = function(options, callback) {
-  // if (!options.body || !options.phone) {
-  //   throw new Error("Missing Number and/or Message")
-  // }
-
-  // console.log("<<", options)
-  
   var options = {
     method:'POST',
     url : 'https://'+ config.sid + ':' + config.atoken +'@api.twilio.com/2010-04-01/Accounts/' + config.sid + '/SMS/Messages.json',
@@ -52,46 +47,32 @@ var sendMessage = function(options, callback) {
       'To': options.phone
     })
   }
-  
   request(options, function (error, response, body) {
-    // console.log(error, response)
     if (!error && response.statusCode == 201) {
       if (callback) {
-        logger("Message Sent " + body);
         callback(201, body)
       }
-        
     } 
     if (error) {
-      logger("[ERROR] " + error);
       if (callback) {
         callback(response.statusCode, error)
       }
-        
     }
   })
 }
 
-
+// splash page
 app.get('/', function(req, res){
   res.render('index.ejs', { layout: 'layout' });
 });
 
+// twilio endpoint
 app.post('/twilio', function(req, res){
-  logger(JSON.stringify(req.body));  
-  
-  var params = JSON.parse(req.body);  
-  var body = params.Body;
-  var phone = params.From;
-  
-  game.inbound({phone:phone, body:body}, function(err , messages){
-    logger("IN INBOUND " + err + " " + messages)
-    
+  game.inbound({ phone: req.body.From, body: re.body.Body }, function(err, messages){
     messages.forEach(function(msg){
       sendMessage({phone: msg.phone, body: msg.body});
     })
   });
-  
   res.send('\n', 204);
 });
 
@@ -102,15 +83,7 @@ app.get('/test',function(req,res){
     console.log("GO")
     res.send("DONE");
   })
-
-  // game.inbound({phone:'17789879239',body:'hi'}, function(err ,messages){
-  //   for (var i = 0;i < messages.length; i++) {
-  //     sendMessage({phone: messages[i].phone, body: messages[i].body});
-  //   }
-  // });
-  
   res.send("DONE");
-
 })
 
 app.listen(port);
